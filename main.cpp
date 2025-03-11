@@ -2,6 +2,83 @@
 #include <windows.h>
 #include <string>
 
+bool CloneDisk(int sourceIndex, int targetIndex) {
+    std::string sourcePath = "\\\\.\\PhsicalDrive" + std::to_string(sourceIndex);
+	std::string targetPath = "\\\\.\\PhsicalDrive" + std::to_string(targetIndex);
+
+	HANDLE hSource = CreateFileA(sourcePath.c_str(),
+        GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
+		NULL,
+		OPEN_EXISTING,
+		0,
+		NULL
+	);
+    HANDLE hTarget = CreateFileA(targetPath.c_str(),\
+        GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
+        NULL,
+        OPEN_EXISTING,
+        0,
+        NULL
+    );
+
+    if (hSource == INVALID_HANDLE_VALUE || hTarget == INVALID_HANDLE_VALUE) {
+        std::cerr << "[ERROR] Failed to open source or target disk." << std::endl;
+        return false;
+    }
+
+    DISK_GEOMETRY dg;
+    DWORD bytesReturned;
+    if (!DeviceIoControl(hSource, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &dg, sizeof(dg), &bytesReturned, NULL)) {
+        std::cerr << "[ERROR] Failed to get source disk geometry." << std::endl;
+        CloseHandle(hSource);
+        CloseHandle(hTarget);
+        return false;
+    }
+    ULONGLONG totalSize = dg.Cylinders.QuadPart * dg.TracksPerCylinder * dg.SectorsPerTrack * dg.BytesPerSector;
+    DWORD secotrSize = dg.BytesPerSector;
+
+    const DWORD bufferSize = 1024 * 1024;
+    BYTE* buffer = new BYTE[bufferSize];
+    ULONGLONG totalCopied = 0;
+
+    std::cout << "[INFO] Start cloning..." << std::endl;
+	std::cout << "[INFO] Total size: " << totalSize / (1024 * 1024 * 1024) << " GB" << std::endl;
+
+    DWORD bytesRead, bytesWritten;
+    BOOL readResult, writeResult;
+
+    while (totalCopied < totalSize) {
+        DWORD toRead = bufferSize;
+        if (totalCopied + bufferSize > totalSize) {
+            toRead = (DWORD)(totalSize - totalCopied);
+        }
+
+        readResult = ReadFile(hSource, buffer, toRead, &bytesRead, NULL);
+        if (!readResult || bytesRead == 0) {
+            std::cerr << "[ERROR] Failed to read source disk." << std::endl;
+            break;
+        }
+
+		writeResult = WriteFile(hTarget, buffer, bytesRead, &bytesWritten, NULL);
+        if (!writeResult || bytesWritten != bytesRead) {
+            std::cerr << "[ERROR] Failed to write target disk." << std::endl;
+            break;
+        }
+
+        totalCopied += bytesRead;
+
+        int percet = (int)((totalCopied * 100) / totalSize);
+        std::cout << "\rProgress: " << percet << "% compeleted." << std::endl;
+    }
+
+    std::cout << "\n[INFO] Cloning completed." << std::endl;
+
+    delete[] buffer;
+    CloseHandle(hSource);
+    CloseHandle(hTarget);
+    return true;
+}
+
 bool IsRunAsAdmin()
 {
     BOOL isAdmin = FALSE;
@@ -106,13 +183,32 @@ int main() {
         return 1;
     }
 
-    ListPhysicalDrives();
+    int sourceIndex, targetIndex;
 
-    int diskIndex;
-    std::cout << "\nEnter the physical disk index you want to view (e.g., 0 for the first disk): ";
-    std::cin >> diskIndex;
+    std::cout << "(Enter 'EXIT' to exit)" << std::endl;
+    std::cout << "Enter source disk index (e.g., 0): ";
+    std::cin >> sourceIndex;
+    std::cout << "Enter target disk index (e.g., 1): ";
+    std::cin >> targetIndex;
 
-    GetDiskInfo(diskIndex);
+    std::cout << "[WARNING] All data on target disk will be destroyed !";
+    std::cout << "Type 'YES' to confirm: " << std::endl;
+    std::string confirm;
+    std::cin >> confirm;
+    if (confirm != "YES") {
+        std::cout << "operation canceled." << std::endl;
+        return 0;
+    }
+
+    if (confirm == "EXIT") {
+        std::cout << "Exiting..." << std::endl;
+        return 0;
+    }
+
+    if (!CloneDisk(sourceIndex, targetIndex)) {
+        std::cerr << "[ERROR] Cloning failed." << std::endl;
+        return 1;
+    }
 
     return 0;
 }
