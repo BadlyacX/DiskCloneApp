@@ -3,8 +3,8 @@
 #include <string>
 
 bool CloneDisk(int sourceIndex, int targetIndex) {
-    std::string sourcePath = "\\\\.\\PhsicalDrive" + std::to_string(sourceIndex);
-	std::string targetPath = "\\\\.\\PhsicalDrive" + std::to_string(targetIndex);
+    std::string sourcePath = "\\\\.\\PhysicalDrive" + std::to_string(sourceIndex);
+	std::string targetPath = "\\\\.\\PhysicalDrive" + std::to_string(targetIndex);
 
 	HANDLE hSource = CreateFileA(sourcePath.c_str(),
         GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -28,7 +28,14 @@ bool CloneDisk(int sourceIndex, int targetIndex) {
 
     DISK_GEOMETRY dg;
     DWORD bytesReturned;
-    if (!DeviceIoControl(hSource, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &dg, sizeof(dg), &bytesReturned, NULL)) {
+    if (!DeviceIoControl(hSource, 
+        IOCTL_DISK_GET_DRIVE_GEOMETRY, 
+        NULL, 
+        0, 
+        &dg, 
+        sizeof(dg), 
+        &bytesReturned, NULL))
+    {
         std::cerr << "[ERROR] Failed to get source disk geometry." << std::endl;
         CloseHandle(hSource);
         CloseHandle(hTarget);
@@ -66,9 +73,9 @@ bool CloneDisk(int sourceIndex, int targetIndex) {
         }
 
         totalCopied += bytesRead;
-
+        
         int percet = (int)((totalCopied * 100) / totalSize);
-        std::cout << "\rProgress: " << percet << "% compeleted." << std::endl;
+        std::cout << "\rProgress: " << percet << "% completed." << std::endl;
     }
 
     std::cout << "\n[INFO] Cloning completed." << std::endl;
@@ -86,10 +93,10 @@ bool IsRunAsAdmin()
     SID_IDENTIFIER_AUTHORITY ntAuthority = SECURITY_NT_AUTHORITY;
 
     if (AllocateAndInitializeSid(
-        &ntAuthority,
-        2,
-        SECURITY_BUILTIN_DOMAIN_RID,
-        DOMAIN_ALIAS_RID_ADMINS,
+        &ntAuthority, 
+        2, 
+        SECURITY_BUILTIN_DOMAIN_RID, 
+        DOMAIN_ALIAS_RID_ADMINS, 
         0, 0, 0, 0, 0, 0,
         &adminGroup))
     {
@@ -163,7 +170,14 @@ void GetDiskInfo(int diskIndex) {
 
     DISK_GEOMETRY dg;
     DWORD bytesReturned;
-    if (DeviceIoControl(hDevice, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &dg, sizeof(dg), &bytesReturned, NULL)) {
+    if (DeviceIoControl(hDevice,
+        IOCTL_DISK_GET_DRIVE_GEOMETRY, 
+        NULL, 
+        0, 
+        &dg, 
+        sizeof(dg), 
+        &bytesReturned, NULL)) 
+    {
         ULONGLONG diskSize = dg.Cylinders.QuadPart * dg.TracksPerCylinder * dg.SectorsPerTrack * dg.BytesPerSector;
         std::cout << "Information for disk " << diskIndex << ":" << std::endl;
         std::cout << "  - Total size: " << diskSize / (1024 * 1024 * 1024) << " GB" << std::endl;
@@ -185,7 +199,7 @@ int main() {
 
     int sourceIndex, targetIndex;
 
-    std::cout << "(Enter 'EXIT' to exit)" << std::endl;
+
     std::cout << "Enter source disk index (e.g., 0): ";
     std::cin >> sourceIndex;
     std::cout << "Enter target disk index (e.g., 1): ";
@@ -197,11 +211,6 @@ int main() {
     std::cin >> confirm;
     if (confirm != "YES") {
         std::cout << "operation canceled." << std::endl;
-        return 0;
-    }
-
-    if (confirm == "EXIT") {
-        std::cout << "Exiting..." << std::endl;
         return 0;
     }
 
